@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Axel/Desktop/generator-quote/**)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

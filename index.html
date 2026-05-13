@@ -879,7 +879,7 @@
       <h1>📋 Name List Generator</h1>
       <div class="header-actions">
         <button onclick="openDraftsModal()" title="Saved drafts">💾 Drafts</button>
-        <button onclick="saveDraft()" title="Save current work">Save</button>
+        <button onclick="saveDraftToServer()" title="Save to server">&#x2601;&#xFE0F; Save</button>
         <button onclick="openShortcutsModal()" title="Keyboard shortcuts">⌨️</button>
         <span class="header-logo">Cocolo Travel</span>
       </div>
@@ -1090,32 +1090,53 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
   
   <!-- Drafts Modal -->
   <div id="draftsModal" class="modal-overlay">
-    <div class="modal">
+    <div class="modal" style="max-width:560px;width:95vw;">
       <div class="modal-header">
-        <h3>💾 Saved Drafts</h3>
+        <h3>&#x1F4BE; Saved Drafts</h3>
         <button class="modal-close" onclick="closeDraftsModal()">&times;</button>
       </div>
-      <div class="modal-body">
-        <div id="draftsList" class="drafts-list">
-          <p style="color: #888; text-align: center; padding: 2rem;">No saved drafts yet</p>
+      <div class="modal-body" style="padding:0;">
+
+        <!-- Server -->
+        <div style="padding:1rem 1.25rem;border-bottom:2px solid #e2e8f0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;">
+            <span style="font-size:13px;font-weight:600;color:#1a365d;">&#x2601;&#xFE0F; Server Drafts</span>
+            <span style="font-size:11px;color:#888;">(shared across all devices)</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:.5rem;">
+            <input type="text" id="serverDraftName" placeholder="Draft name (e.g. Alps_Spring_2026)" style="flex:1;font-size:13px;">
+            <button class="btn-primary btn-small" onclick="saveDraftToServer()" style="white-space:nowrap;">Save &#x2601;&#xFE0F;</button>
+          </div>
+          <input type="text" id="serverDraftSearch" placeholder="Search server drafts..." style="width:100%;font-size:13px;margin-bottom:.5rem;" oninput="filterServerDrafts(this.value)">
+          <div id="serverDraftList" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:#f8f9fa;">
+            <p style="color:#888;text-align:center;padding:1.5rem;">Loading...</p>
+          </div>
         </div>
-        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-          <p style="font-size: 12px; color: #666; margin-bottom: 0.5rem;">📁 Transfer drafts between devices:</p>
-          <div style="display: flex; gap: 10px;">
-            <button onclick="exportDrafts()" class="btn-secondary" style="flex: 1;">📤 Export All Drafts</button>
-            <label class="btn-secondary" style="flex: 1; text-align: center; cursor: pointer;">
-              📥 Import Drafts
-              <input type="file" id="importDraftsFile" accept=".json" onchange="importDrafts(event)" style="display: none;">
+
+        <!-- Local -->
+        <div style="padding:1rem 1.25rem;">
+          <div style="font-size:13px;font-weight:600;color:#1a365d;margin-bottom:.75rem;">&#x1F4BB; Local Drafts</div>
+          <div id="draftsList" class="drafts-list" style="max-height:160px;overflow-y:auto;">
+            <p style="color:#888;text-align:center;padding:1.5rem;">No local drafts yet</p>
+          </div>
+          <div style="margin-top:.75rem;display:flex;gap:8px;">
+            <button onclick="saveDraft()" class="btn-small" style="flex:1;">Save locally</button>
+            <button onclick="exportDrafts()" class="btn-small btn-secondary" style="flex:1;">&#x1F4E4; Export</button>
+            <label class="btn-small btn-secondary" style="flex:1;text-align:center;cursor:pointer;">
+              &#x1F4E5; Import
+              <input type="file" id="importDraftsFile" accept=".json" onchange="importDrafts(event)" style="display:none;">
             </label>
           </div>
         </div>
+
       </div>
+      <div id="draftModalStatus" style="padding:8px 1.25rem;font-size:12px;color:#888;border-top:1px solid #e2e8f0;min-height:28px;"></div>
       <div class="modal-footer">
         <button onclick="closeDraftsModal()">Close</button>
       </div>
     </div>
   </div>
-  
+
   <!-- Shortcuts Modal -->
   <div id="shortcutsModal" class="modal-overlay">
     <div class="modal">
@@ -1171,6 +1192,129 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     };
     
     const roomCapacity = { TWIN: 2, SINGLE: 1, DOUBLE: 2, TRIPLE: 3 };
+
+    // ==================== DRAFT SERVER API ====================
+    const DRAFTS_API = 'https://drafts.cocolotravel.com';
+    const DRAFTS_KEY = '4c9aac2c8fb729428030741580913a4b';
+    const DRAFT_PREFIX = 'NL_';
+
+    async function apiRequest(method, path, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json', 'x-api-key': DRAFTS_KEY } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(DRAFTS_API + path, opts);
+      if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+      return res.json();
+    }
+
+    function captureCurrentHotelFields() {
+      const hotel = getCurrentHotel();
+      hotel.name = document.getElementById('hotelName').value;
+      hotel.checkinDate = document.getElementById('checkinDate').value;
+      hotel.checkoutDate = document.getElementById('checkoutDate').value;
+      hotel.arrivalNotes = document.getElementById('arrivalNotes').value;
+      state.tourCode = document.getElementById('tourCode').value;
+    }
+
+    function applyLoadedState(data) {
+      Object.assign(state, data);
+      document.getElementById('tourCode').value = state.tourCode || '';
+      const hotel = getCurrentHotel();
+      document.getElementById('hotelName').value = hotel.name || '';
+      document.getElementById('checkinDate').value = hotel.checkinDate || '';
+      document.getElementById('checkoutDate').value = hotel.checkoutDate || '';
+      document.getElementById('arrivalNotes').value = hotel.arrivalNotes || '';
+      history.undoStack = [];
+      history.redoStack = [];
+      updateUndoRedoButtons();
+      renderAll();
+    }
+
+    function setDraftStatus(msg) {
+      const el = document.getElementById('draftModalStatus');
+      if (el) el.textContent = msg;
+    }
+
+    let allServerDrafts = [];
+
+    async function saveDraftToServer() {
+      captureCurrentHotelFields();
+      const nameInput = document.getElementById('serverDraftName');
+      const raw = (nameInput?.value.trim() || state.tourCode || 'draft')
+        .replace(/[^a-zA-Z0-9\s\-_]/g, '').trim().replace(/\s+/g, '_') || 'draft';
+      const key = DRAFT_PREFIX + raw;
+      setDraftStatus('Saving...');
+      try {
+        await apiRequest('POST', '/drafts/' + encodeURIComponent(key), state);
+        showToast('Draft saved to server', 'success');
+        setDraftStatus('Saved');
+        loadServerDraftList();
+      } catch(e) {
+        showToast('Save failed: ' + e.message, 'error');
+        setDraftStatus('Error: ' + e.message);
+      }
+    }
+
+    async function loadDraftFromServer(key) {
+      if (state.hotels.some(h => (h.guests || []).length > 0 || h.rooms.length > 0)) {
+        if (!confirm('Loading a draft will replace your current work. Continue?')) return;
+      }
+      setDraftStatus('Loading...');
+      try {
+        const data = await apiRequest('GET', '/drafts/' + encodeURIComponent(key));
+        closeDraftsModal();
+        applyLoadedState(data);
+        showToast('Draft loaded', 'success');
+      } catch(e) {
+        setDraftStatus('Error: ' + e.message);
+      }
+    }
+
+    async function deleteDraftFromServer(key) {
+      const displayName = key.replace(DRAFT_PREFIX, '').replace(/_/g, ' ');
+      if (!confirm('Delete draft "' + displayName + '"?')) return;
+      setDraftStatus('Deleting...');
+      try {
+        await apiRequest('DELETE', '/drafts/' + encodeURIComponent(key));
+        showToast('Draft deleted');
+        loadServerDraftList();
+        setDraftStatus('');
+      } catch(e) {
+        setDraftStatus('Error: ' + e.message);
+      }
+    }
+
+    async function loadServerDraftList() {
+      const list = document.getElementById('serverDraftList');
+      if (!list) return;
+      list.innerHTML = '<p style="color:#888;text-align:center;padding:1.5rem;">Loading...</p>';
+      try {
+        const { drafts } = await apiRequest('GET', '/drafts');
+        allServerDrafts = (drafts || []).filter(d => d.key.startsWith(DRAFT_PREFIX));
+        filterServerDrafts(document.getElementById('serverDraftSearch')?.value || '');
+      } catch(e) {
+        list.innerHTML = '<p style="color:#c53030;text-align:center;padding:1.5rem;">Could not connect to server.<br><small style="color:#888;">' + e.message + '</small></p>';
+      }
+    }
+
+    function filterServerDrafts(query) {
+      const list = document.getElementById('serverDraftList');
+      const filtered = query
+        ? allServerDrafts.filter(d => d.key.toLowerCase().includes(query.toLowerCase()))
+        : allServerDrafts;
+      if (!filtered.length) {
+        list.innerHTML = '<p style="color:#888;text-align:center;padding:1.5rem;">' + (query ? 'No matching drafts' : 'No server drafts yet') + '</p>';
+        return;
+      }
+      list.innerHTML = filtered.map(d => {
+        const name = d.key.replace(DRAFT_PREFIX, '').replace(/_/g, ' ');
+        const date = new Date(d.lastModified).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        return '<div class="draft-item"><div class="draft-info"><h4>' + name + '</h4><p>' + date + '</p></div>'
+             + '<div class="draft-actions">'
+             + '<button class="btn-small btn-primary" onclick="loadDraftFromServer(\'' + d.key + '\')">Load</button>'
+             + '<button class="btn-small" onclick="deleteDraftFromServer(\'' + d.key + '\')" style="color:#c53030;">Delete</button>'
+             + '</div></div>';
+      }).join('');
+    }
     
     // ==================== UNDO/REDO ====================
     const history = {
@@ -1721,6 +1865,11 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     function openDraftsModal() {
       renderDraftsList();
       document.getElementById('draftsModal').classList.add('active');
+      const nameInput = document.getElementById('serverDraftName');
+      if (nameInput && !nameInput.value && state.tourCode) {
+        nameInput.value = state.tourCode.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim().replace(/\s+/g, '_');
+      }
+      loadServerDraftList();
     }
     
     function closeDraftsModal() {
