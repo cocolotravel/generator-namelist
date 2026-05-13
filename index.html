@@ -1217,6 +1217,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
 
     function applyLoadedState(data) {
       Object.assign(state, data);
+      migrateState();
       document.getElementById('tourCode').value = state.tourCode || '';
       const hotel = getCurrentHotel();
       document.getElementById('hotelName').value = hotel.name || '';
@@ -1700,6 +1701,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       
       const data = JSON.parse(draft.data);
       Object.assign(state, data);
+      migrateState();
       
       document.getElementById('tourCode').value = state.tourCode;
       const hotel = getCurrentHotel();
