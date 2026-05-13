@@ -1160,13 +1160,13 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
           checkoutDate: '',
           arrivalNotes: '',
           rooms: [],
-          roomCounters: { TWIN: 0, SINGLE: 0, DOUBLE: 0, TRIPLE: 0 }
+          roomCounters: { TWIN: 0, SINGLE: 0, DOUBLE: 0, TRIPLE: 0 },
+          guests: [],
+          guestIdCounter: 0
         }
       ],
-      guests: [],
       tourCode: '',
       currentHotelId: 1,
-      guestIdCounter: 0,
       hotelIdCounter: 1
     };
     
@@ -1182,10 +1182,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     function saveState() {
       const snapshot = JSON.stringify({
         hotels: state.hotels,
-        guests: state.guests,
         tourCode: state.tourCode,
         currentHotelId: state.currentHotelId,
-        guestIdCounter: state.guestIdCounter,
         hotelIdCounter: state.hotelIdCounter
       });
       history.undoStack.push(snapshot);
@@ -1199,10 +1197,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     function restoreState(snapshot) {
       const data = JSON.parse(snapshot);
       state.hotels = data.hotels;
-      state.guests = data.guests;
       state.tourCode = data.tourCode;
       state.currentHotelId = data.currentHotelId;
-      state.guestIdCounter = data.guestIdCounter;
       state.hotelIdCounter = data.hotelIdCounter;
       
       // Update form fields
@@ -1218,13 +1214,11 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     
     function undo() {
       if (history.undoStack.length === 0) return;
-      
+
       const currentState = JSON.stringify({
         hotels: state.hotels,
-        guests: state.guests,
         tourCode: state.tourCode,
         currentHotelId: state.currentHotelId,
-        guestIdCounter: state.guestIdCounter,
         hotelIdCounter: state.hotelIdCounter
       });
       history.redoStack.push(currentState);
@@ -1237,13 +1231,11 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     
     function redo() {
       if (history.redoStack.length === 0) return;
-      
+
       const currentState = JSON.stringify({
         hotels: state.hotels,
-        guests: state.guests,
         tourCode: state.tourCode,
         currentHotelId: state.currentHotelId,
-        guestIdCounter: state.guestIdCounter,
         hotelIdCounter: state.hotelIdCounter
       });
       history.undoStack.push(currentState);
@@ -1274,7 +1266,9 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
         checkoutDate: '',
         arrivalNotes: '',
         rooms: [],
-        roomCounters: { TWIN: 0, SINGLE: 0, DOUBLE: 0, TRIPLE: 0 }
+        roomCounters: { TWIN: 0, SINGLE: 0, DOUBLE: 0, TRIPLE: 0 },
+        guests: [],
+        guestIdCounter: 0
       };
       state.hotels.push(newHotel);
       switchHotel(newHotel.id);
@@ -1288,30 +1282,33 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       currentHotel.checkinDate = document.getElementById('checkinDate').value;
       currentHotel.checkoutDate = document.getElementById('checkoutDate').value;
       currentHotel.arrivalNotes = document.getElementById('arrivalNotes').value;
-      
+
       saveState();
-      
+
       const sourceHotel = state.hotels.find(h => h.id === hotelId);
       if (!sourceHotel) return;
-      
+
       state.hotelIdCounter++;
       const newHotelId = state.hotelIdCounter;
-      
-      // Create new room counters based on duplicated rooms
+
+      // Deep-copy every guest with a fresh ID so the two hotels are fully independent
+      let newGuestIdCounter = 0;
+      const guestIdMap = new Map(); // old id -> new guest object
+      const newGuests = (sourceHotel.guests || []).map(g => {
+        const copy = { ...g, id: ++newGuestIdCounter, roomId: null };
+        guestIdMap.set(g.id, copy);
+        return copy;
+      });
+
+      // Duplicate rooms with new IDs, referencing the copied guest objects
       const newRoomCounters = { TWIN: 0, SINGLE: 0, DOUBLE: 0, TRIPLE: 0 };
-      
-      // Duplicate rooms with new IDs and re-link guests
       const newRooms = sourceHotel.rooms.map(room => {
         newRoomCounters[room.type]++;
         const newRoomId = `${newHotelId}-${room.type}-${newRoomCounters[room.type]}`;
-        
-        // Create new guest references for this room
-        const roomGuests = room.guests.map(g => {
-          // Find the actual guest in state.guests
-          const guest = state.guests.find(sg => sg.id === g.id);
-          return guest;
-        }).filter(g => g); // Filter out any undefined
-        
+
+        const roomGuests = room.guests.map(g => guestIdMap.get(g.id)).filter(g => g);
+        roomGuests.forEach(g => { g.roomId = newRoomId; });
+
         return {
           id: newRoomId,
           type: room.type,
@@ -1319,14 +1316,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
           guests: roomGuests
         };
       });
-      
-      // Update guest roomId references to point to new rooms
-      newRooms.forEach((room, idx) => {
-        room.guests.forEach(guest => {
-          guest.roomId = room.id;
-        });
-      });
-      
+
       const newHotel = {
         id: newHotelId,
         name: sourceHotel.name ? sourceHotel.name + ' (copy)' : '',
@@ -1334,9 +1324,11 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
         checkoutDate: sourceHotel.checkoutDate,
         arrivalNotes: '',
         rooms: newRooms,
-        roomCounters: newRoomCounters
+        roomCounters: newRoomCounters,
+        guests: newGuests,
+        guestIdCounter: newGuestIdCounter
       };
-      
+
       state.hotels.push(newHotel);
       switchHotel(newHotel.id);
       showToast('Hotel duplicated');
@@ -1353,10 +1345,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
         if (!confirm(`This hotel has ${hotel.rooms.length} room(s). Remove anyway?`)) {
           return;
         }
-        // Unassign all guests from this hotel's rooms
-        hotel.rooms.forEach(room => {
-          room.guests.forEach(g => g.roomId = null);
-        });
+        // guests are per-hotel and are removed along with the hotel
       }
       
       saveState();
@@ -1478,7 +1467,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     
     function countWarnings() {
       let count = 0;
-      state.guests.forEach(g => {
+      const hotel = getCurrentHotel();
+      (hotel.guests || []).forEach(g => {
         const { warnings, errors } = validateGuest(g);
         count += warnings.length + errors.length;
       });
@@ -1487,7 +1477,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     
     // ==================== AUTO-CREATE ROOMS ====================
     function updateAutoCreateBar() {
-      const unassigned = state.guests.filter(g => !g.roomId);
+      const hotel = getCurrentHotel();
+      const unassigned = (hotel.guests || []).filter(g => !g.roomId);
       const bar = document.getElementById('autoCreateBar');
       const text = document.getElementById('autoCreateText');
       
@@ -1501,10 +1492,10 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     
     function autoCreateRooms(type) {
       saveState();
-      const unassigned = state.guests.filter(g => !g.roomId);
+      const hotel = getCurrentHotel();
+      const unassigned = (hotel.guests || []).filter(g => !g.roomId);
       const capacity = roomCapacity[type];
       const roomsNeeded = Math.ceil(unassigned.length / capacity);
-      const hotel = getCurrentHotel();
       
       for (let i = 0; i < roomsNeeded; i++) {
         hotel.roomCounters[type]++;
@@ -1539,7 +1530,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       const draft = {
         id: Date.now(),
         tourCode: state.tourCode || 'Untitled',
-        guestCount: state.guests.length,
+        guestCount: state.hotels.reduce((sum, h) => sum + (h.guests || []).length, 0),
         hotelCount: state.hotels.length,
         savedAt: new Date().toISOString(),
         data: JSON.stringify(state)
@@ -1557,7 +1548,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       const draft = drafts.find(d => d.id === draftId);
       if (!draft) return;
       
-      if (state.guests.length > 0 || state.hotels.some(h => h.rooms.length > 0)) {
+      if (state.hotels.some(h => (h.guests || []).length > 0 || h.rooms.length > 0)) {
         if (!confirm('Loading a draft will replace your current work. Continue?')) {
           return;
         }
@@ -1804,24 +1795,25 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       }
       
       saveState();
-      
+
+      const hotel = getCurrentHotel();
       const lines = data.split('\n').filter(line => line.trim());
       let importedCount = 0;
       let errorCount = 0;
-      
+
       lines.forEach((line) => {
         const cols = line.split('\t');
-        
+
         const familyName = (cols[0] || '').trim();
         const firstName = (cols[1] || '').trim();
-        
+
         if (!familyName && !firstName) {
           errorCount++;
           return;
         }
-        
+
         const guest = {
-          id: ++state.guestIdCounter,
+          id: ++hotel.guestIdCounter,
           familyName,
           firstName,
           gender: normalizeGender(cols[2]),
@@ -1833,8 +1825,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
           misc: (cols[8] || '').trim(),
           roomId: null
         };
-        
-        state.guests.push(guest);
+
+        hotel.guests.push(guest);
         importedCount++;
       });
       
@@ -1866,9 +1858,10 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       }
       
       saveState();
-      
+
+      const hotel = getCurrentHotel();
       const guest = {
-        id: ++state.guestIdCounter,
+        id: ++hotel.guestIdCounter,
         familyName,
         firstName,
         gender: document.getElementById('gender').value,
@@ -1880,8 +1873,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
         misc: document.getElementById('misc').value.trim(),
         roomId: null
       };
-      
-      state.guests.push(guest);
+
+      hotel.guests.push(guest);
       
       ['familyName', 'firstName', 'gender', 'dob', 'nationality', 'passport', 'passportExpiry', 'dietary', 'misc'].forEach(id => {
         const el = document.getElementById(id);
@@ -1895,24 +1888,22 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     
     function removeGuest(guestId) {
       saveState();
-      state.guests = state.guests.filter(g => g.id !== guestId);
-      state.hotels.forEach(hotel => {
-        hotel.rooms.forEach(r => {
-          r.guests = r.guests.filter(g => g.id !== guestId);
-        });
+      const hotel = getCurrentHotel();
+      hotel.guests = hotel.guests.filter(g => g.id !== guestId);
+      hotel.rooms.forEach(r => {
+        r.guests = r.guests.filter(g => g.id !== guestId);
       });
       renderAll();
     }
     
     function clearAllGuests() {
-      if (state.guests.length === 0) return;
-      
-      if (confirm(`Are you sure you want to remove all ${state.guests.length} guests?`)) {
+      const hotel = getCurrentHotel();
+      if ((hotel.guests || []).length === 0) return;
+
+      if (confirm(`Are you sure you want to remove all ${hotel.guests.length} guests from this hotel?`)) {
         saveState();
-        state.guests = [];
-        state.hotels.forEach(hotel => {
-          hotel.rooms.forEach(r => r.guests = []);
-        });
+        hotel.guests = [];
+        hotel.rooms.forEach(r => { r.guests = []; });
         renderAll();
       }
     }
@@ -1956,23 +1947,21 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     function assignGuestToRoom(guestId, roomId) {
       const hotel = getCurrentHotel();
       const room = hotel.rooms.find(r => r.id === roomId);
-      const guest = state.guests.find(g => g.id === guestId);
-      
+      const guest = (hotel.guests || []).find(g => g.id === guestId);
+
       if (!room || !guest) return;
       if (room.guests.length >= roomCapacity[room.type]) {
         showToast(`Room is full (max ${roomCapacity[room.type]})`, 'warning');
         return;
       }
-      
+
       saveState();
-      
-      // Remove from any room (across all hotels)
-      state.hotels.forEach(h => {
-        h.rooms.forEach(r => {
-          r.guests = r.guests.filter(g => g.id !== guestId);
-        });
+
+      // Remove from any room within this hotel
+      hotel.rooms.forEach(r => {
+        r.guests = r.guests.filter(g => g.id !== guestId);
       });
-      
+
       guest.roomId = roomId;
       room.guests.push(guest);
       renderAll();
@@ -1980,13 +1969,12 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     
     function unassignGuest(guestId) {
       saveState();
-      const guest = state.guests.find(g => g.id === guestId);
+      const hotel = getCurrentHotel();
+      const guest = (hotel.guests || []).find(g => g.id === guestId);
       if (guest) {
         guest.roomId = null;
-        state.hotels.forEach(h => {
-          h.rooms.forEach(r => {
-            r.guests = r.guests.filter(g => g.id !== guestId);
-          });
+        hotel.rooms.forEach(r => {
+          r.guests = r.guests.filter(g => g.id !== guestId);
         });
       }
       renderAll();
@@ -2180,7 +2168,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       
       // Render guest pool
       const pool = document.getElementById('guestPool');
-      const unassigned = state.guests.filter(g => !g.roomId);
+      const unassigned = (hotel.guests || []).filter(g => !g.roomId);
       pool.innerHTML = '';
       
       if (unassigned.length === 0) {
@@ -2217,11 +2205,11 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       // Update auto-create bar
       updateAutoCreateBar();
       
-      // Update stats
-      const total = state.guests.length;
+      // Update stats (scoped to the current hotel)
+      const total = (hotel.guests || []).length;
       const unassignedCount = unassigned.length;
       const warningCount = countWarnings();
-      const totalRooms = state.hotels.reduce((sum, h) => sum + h.rooms.length, 0);
+      const totalRooms = hotel.rooms.length;
       
       document.getElementById('totalGuests').textContent = total;
       document.getElementById('totalRooms').textContent = totalRooms;
