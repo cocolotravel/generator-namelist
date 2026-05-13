@@ -2462,14 +2462,26 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
             doc.setTextColor(0);
             doc.setFont('NotoSansJP');
             doc.text('備考 / Notes:', 14, notesY);
-            
+
             doc.setFontSize(9);
             doc.setTextColor(60);
-            
-            // Split notes into lines and render
+
+            // Split notes into lines and render with page-break support
             const maxWidth = doc.internal.pageSize.width - 28;
             const lines = doc.splitTextToSize(hotel.arrivalNotes, maxWidth);
-            doc.text(lines, 14, notesY + 6);
+            const lineHeight = 5;
+            const pageHeight = doc.internal.pageSize.height;
+            const marginBottom = 18; // leave room for the footer
+            let lineY = notesY + 6;
+
+            lines.forEach(line => {
+              if (lineY > pageHeight - marginBottom) {
+                doc.addPage();
+                lineY = 20;
+              }
+              doc.text(line, 14, lineY);
+              lineY += lineHeight;
+            });
           }
           
           // Footer
