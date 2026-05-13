@@ -1215,6 +1215,29 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       state.tourCode = document.getElementById('tourCode').value;
     }
 
+    function migrateState() {
+      // Handle old-format drafts where state.guests was top-level (pre per-hotel refactor)
+      if (Array.isArray(state.guests) && state.guests.length > 0) {
+        state.guests.forEach(guest => {
+          const targetHotel = guest.roomId
+            ? state.hotels.find(h => h.rooms.some(r => r.id === guest.roomId))
+            : null;
+          const dest = targetHotel || state.hotels[0];
+          if (!dest.guests) dest.guests = [];
+          if (!dest.guests.find(g => g.id === guest.id)) dest.guests.push(guest);
+        });
+        delete state.guests;
+      }
+      state.hotels.forEach(hotel => {
+        if (!Array.isArray(hotel.guests)) hotel.guests = [];
+        if (typeof hotel.guestIdCounter !== 'number') {
+          hotel.guestIdCounter = hotel.guests.length
+            ? Math.max(...hotel.guests.map(g => g.id || 0))
+            : 0;
+        }
+      });
+    }
+
     function applyLoadedState(data) {
       Object.assign(state, data);
       migrateState();
@@ -1262,8 +1285,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       setDraftStatus('Loading...');
       try {
         const data = await apiRequest('GET', '/drafts/' + encodeURIComponent(key));
-        closeDraftsModal();
         applyLoadedState(data);
+        closeDraftsModal();
         showToast('Draft loaded', 'success');
       } catch(e) {
         setDraftStatus('Error: ' + e.message);
@@ -1699,24 +1722,29 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
         }
       }
       
-      const data = JSON.parse(draft.data);
-      Object.assign(state, data);
-      migrateState();
-      
-      document.getElementById('tourCode').value = state.tourCode;
-      const hotel = getCurrentHotel();
-      document.getElementById('hotelName').value = hotel.name;
-      document.getElementById('checkinDate').value = hotel.checkinDate;
-      document.getElementById('checkoutDate').value = hotel.checkoutDate;
-      document.getElementById('arrivalNotes').value = hotel.arrivalNotes || '';
-      
-      history.undoStack = [];
-      history.redoStack = [];
-      updateUndoRedoButtons();
-      
-      closeDraftsModal();
-      renderAll();
-      showToast('Draft loaded', 'success');
+      try {
+        const data = JSON.parse(draft.data);
+        Object.assign(state, data);
+        migrateState();
+
+        document.getElementById('tourCode').value = state.tourCode || '';
+        const hotel = getCurrentHotel();
+        document.getElementById('hotelName').value = hotel.name || '';
+        document.getElementById('checkinDate').value = hotel.checkinDate || '';
+        document.getElementById('checkoutDate').value = hotel.checkoutDate || '';
+        document.getElementById('arrivalNotes').value = hotel.arrivalNotes || '';
+
+        history.undoStack = [];
+        history.redoStack = [];
+        updateUndoRedoButtons();
+
+        closeDraftsModal();
+        renderAll();
+        showToast('Draft loaded', 'success');
+      } catch(e) {
+        showToast('Load failed: ' + e.message, 'error');
+        console.error('loadDraft error:', e);
+      }
     }
     
     function deleteDraft(draftId) {
