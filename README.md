@@ -1,6 +1,19 @@
 # Cocolo NameList Generator
 
-A single-file, offline-capable web tool for building hotel name lists for tour groups. Built for Cocolo Travel.
+A single-file web tool for building hotel name lists for tour groups. Built for Cocolo Travel.
+
+## Branding
+
+The UI follows the COCOLO Travel brand system. All brand assets — the cloud logo, the design tokens (colors/type scale), and the Roslindale webfont — are pulled at runtime from `assets.cocolotravel.com`, never bundled into the repo:
+
+| Asset | Source |
+|---|---|
+| Favicon / logo mark | `https://assets.cocolotravel.com/logos/png/cloud_logo_full_sumi.png`, `.../logos/svg/logo_cloud_logo_linear_washi.svg` |
+| Design tokens (CSS custom properties) | `https://assets.cocolotravel.com/brand/tokens.css` |
+| Roslindale (display typeface) | `https://assets.cocolotravel.com/fonts/RoslindaleVariable[...].woff2` |
+| Inter (text typeface) | Google Fonts CDN (`fonts.googleapis.com`) — not hosted on the COCOLO asset host, so it's loaded from Google Fonts instead |
+
+Because of this, the page needs network access to `assets.cocolotravel.com` and `fonts.googleapis.com` to render fully on-brand; functionality (name list building, PDF/Excel export) still works without it, just with fallback system fonts/colors.
 
 ## Features
 
@@ -32,7 +45,7 @@ A single-file, offline-capable web tool for building hotel name lists for tour g
 ### Other
 - Undo / Redo (Ctrl+Z / Ctrl+Y)
 - Keyboard shortcuts for common actions
-- Fully offline — no backend, no build step required
+- No backend, no build step required (brand fonts/tokens load from `assets.cocolotravel.com` — see [Branding](#branding))
 
 ## Keyboard Shortcuts
 
@@ -65,6 +78,8 @@ All dependencies are either bundled inline or loaded from CDN:
 | [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) | Table layout in PDF |
 | [SheetJS (xlsx)](https://sheetjs.com/) | Excel export |
 | NotoSansJP (TTF, base64) | Japanese character rendering in PDF |
+| COCOLO brand tokens / Roslindale | Loaded from `assets.cocolotravel.com` (see [Branding](#branding)) |
+| Inter | Loaded from Google Fonts |
 
 ## File Size
 
