@@ -66,7 +66,7 @@ Because of this, the page needs network access to `assets.cocolotravel.com` and 
 
 Open `index.html` directly in a browser — no server or installation needed.
 
-To deploy, copy `index.html` to any static hosting service (GitHub Pages, Netlify, etc.).
+To deploy, copy `index.html` to any static hosting service (GitHub Pages, Netlify, etc.). A `netlify.toml` is included for one-click Netlify deploys — it just publishes the repo root, no build step needed.
 
 ## Dependencies
 
