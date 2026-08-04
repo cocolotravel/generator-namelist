@@ -1221,7 +1221,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     // ==================== DRAFT SERVER API ====================
     const DRAFTS_API = 'https://drafts.cocolotravel.com';
     const DRAFTS_KEY = '4c9aac2c8fb729428030741580913a4b';
-    const DRAFT_PREFIX = 'NL_';
+    const DRAFTS_TYPE = 'namelists';
 
     async function apiRequest(method, path, body) {
       const opts = { method, headers: { 'Content-Type': 'application/json', 'x-api-key': DRAFTS_KEY } };
@@ -1288,12 +1288,11 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     async function saveDraftToServer() {
       captureCurrentHotelFields();
       const nameInput = document.getElementById('serverDraftName');
-      const raw = (nameInput?.value.trim() || state.tourCode || 'draft')
+      const key = (nameInput?.value.trim() || state.tourCode || 'draft')
         .replace(/[^a-zA-Z0-9\s\-_]/g, '').trim().replace(/\s+/g, '_') || 'draft';
-      const key = DRAFT_PREFIX + raw;
       setDraftStatus('Saving...');
       try {
-        await apiRequest('POST', '/drafts/' + encodeURIComponent(key), state);
+        await apiRequest('POST', '/drafts/' + DRAFTS_TYPE + '/' + encodeURIComponent(key), state);
         showToast('Draft saved to server', 'success');
         setDraftStatus('Saved');
         loadServerDraftList();
@@ -1309,7 +1308,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       }
       setDraftStatus('Loading...');
       try {
-        const data = await apiRequest('GET', '/drafts/' + encodeURIComponent(key));
+        const data = await apiRequest('GET', '/drafts/' + DRAFTS_TYPE + '/' + encodeURIComponent(key));
         applyLoadedState(data);
         closeDraftsModal();
         showToast('Draft loaded', 'success');
@@ -1319,11 +1318,11 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     }
 
     async function deleteDraftFromServer(key) {
-      const displayName = key.replace(DRAFT_PREFIX, '').replace(/_/g, ' ');
+      const displayName = key.replace(/_/g, ' ');
       if (!confirm('Delete draft "' + displayName + '"?')) return;
       setDraftStatus('Deleting...');
       try {
-        await apiRequest('DELETE', '/drafts/' + encodeURIComponent(key));
+        await apiRequest('DELETE', '/drafts/' + DRAFTS_TYPE + '/' + encodeURIComponent(key));
         showToast('Draft deleted');
         loadServerDraftList();
         setDraftStatus('');
@@ -1337,8 +1336,8 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
       if (!list) return;
       list.innerHTML = '<p style="color:var(--color-sumi-60, rgba(27, 56, 72, 0.6));text-align:center;padding:1.5rem;">Loading...</p>';
       try {
-        const { drafts } = await apiRequest('GET', '/drafts');
-        allServerDrafts = (drafts || []).filter(d => d.key.startsWith(DRAFT_PREFIX));
+        const { drafts } = await apiRequest('GET', '/drafts/' + DRAFTS_TYPE + '/list');
+        allServerDrafts = drafts || [];
         filterServerDrafts(document.getElementById('serverDraftSearch')?.value || '');
       } catch(e) {
         list.innerHTML = '<p style="color:#c53030;text-align:center;padding:1.5rem;">Could not connect to server.<br><small style="color:var(--color-sumi-60, rgba(27, 56, 72, 0.6));">' + e.message + '</small></p>';
@@ -1355,7 +1354,7 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
         return;
       }
       list.innerHTML = filtered.map(d => {
-        const name = d.key.replace(DRAFT_PREFIX, '').replace(/_/g, ' ');
+        const name = d.key.replace(/_/g, ' ');
         const date = new Date(d.lastModified).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
         return '<div class="draft-item"><div class="draft-info"><h4>' + name + '</h4><p>' + date + '</p></div>'
              + '<div class="draft-actions">'
