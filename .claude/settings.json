@@ -3,7 +3,8 @@
     "allow": [
       "Read(//c/Users/Axel/Desktop/generator-quote/**)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Read(//c/Users/Axel/Desktop/cocolo-draft-server/**)"
     ]
   }
 }
