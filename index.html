@@ -187,14 +187,19 @@
     }
     
     .hotel-tab .duplicate-hotel {
-      font-size: 12px;
-      opacity: 0.6;
+      font-size: 13px;
       cursor: pointer;
-      transition: opacity 0.2s;
+      background: var(--color-brand-kodama);
+      border: 1px solid var(--color-brand-sumi);
+      border-radius: 4px;
+      padding: 2px 5px;
+      line-height: 1;
+      transition: transform 0.15s, box-shadow 0.15s;
     }
-    
+
     .hotel-tab .duplicate-hotel:hover {
-      opacity: 1;
+      transform: scale(1.1);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
     }
     
     .hotel-tab .remove-hotel {
