@@ -74,6 +74,16 @@ Open `index.html` directly in a browser — no server or installation needed.
 
 To deploy, copy `index.html` to any static hosting service (GitHub Pages, Netlify, etc.). A `netlify.toml` is included for one-click Netlify deploys — it just publishes the repo root, no build step needed.
 
+### Server drafts (Netlify environment variable required)
+
+The "save to server" drafts feature calls [cocolo-draft-server](https://github.com/axelder/cocolo-draft-server) through the `netlify/functions/drafts.js` proxy, so the server's API key is never shipped to the browser. For this to work on Netlify, set an environment variable on the site:
+
+| Variable | Value |
+| --- | --- |
+| `DRAFTS_API_KEY` | Must match the `API_KEY` configured on the drafts server (Portainer → Stack → Environment Variables) |
+
+Without it, local drafts (browser `localStorage`) and PDF/Excel export still work — only the server drafts feature is affected.
+
 ## Dependencies
 
 All dependencies are either bundled inline or loaded from CDN:

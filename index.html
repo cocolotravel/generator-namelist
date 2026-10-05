@@ -1226,12 +1226,13 @@ Tanaka	Yuki	F	1990-07-22	Japan	CD789012	2028-07-22		Window seat"></textarea>
     const roomCapacity = { TWIN: 2, SINGLE: 1, DOUBLE: 2, TRIPLE: 3 };
 
     // ==================== DRAFT SERVER API ====================
-    const DRAFTS_API = 'https://drafts.cocolotravel.com';
-    const DRAFTS_KEY = '4c9aac2c8fb729428030741580913a4b';
+    // Requests go through the /api/* Netlify Function proxy (see netlify/functions/drafts.js)
+    // so the real drafts.cocolotravel.com API key stays server-side, never shipped to the browser.
+    const DRAFTS_API = '/api';
     const DRAFTS_TYPE = 'namelists';
 
     async function apiRequest(method, path, body) {
-      const opts = { method, headers: { 'Content-Type': 'application/json', 'x-api-key': DRAFTS_KEY } };
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(DRAFTS_API + path, opts);
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
